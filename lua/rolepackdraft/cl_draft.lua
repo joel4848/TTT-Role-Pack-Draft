@@ -72,7 +72,7 @@ local function CalculateTopIconPositions()
     local monsterBans = draft_monster_bans:GetInt()
     local detectivePicks = draft_detective_picks:GetInt()
     local detectiveBans = draft_detective_bans:GetInt()
-    
+
     local groups = 0
     local innocentGroupSize = 0
     if innocentPicks > 0 or innocentBans > 0 then
@@ -536,7 +536,7 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
             progress = time / draft_turn_time:GetInt()
         end
         draw.SimpleText(string.format("%05.2f", time), "DraftTimer", ScrW() / 2, y, COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
-        surface.DrawRect((ScrW() - (timerWidth * progress)) / 2, y + smallIconSize + (0.5 * smallIconMargin), (timerWidth * progress), groupDividerWidth)
+        surface.DrawRect((ScrW() - (timerWidth * progress)) / 2, y + smallIconSize + (0.5 * smallIconMargin), timerWidth * progress, groupDividerWidth)
 
         local x = bottomPositions.x
         y = ScrH() - smallIconSize - smallIconMargin
@@ -591,18 +591,18 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
                 surface.SetDrawColor(255, 255, 255, 32)
                 if turn.player then
                     frames[order].panel:SetBackgroundColor(Color(0, 0, 0, 223))
-                    frames[order].panel:SetDrawBackground(true)
+                    frames[order].panel:SetPaintBackground(true)
                 end
             elseif order > draftPhase then
                 surface.SetDrawColor(255, 255, 255, 127)
                 if turn.player then
                     frames[order].panel:SetBackgroundColor(Color(0, 0, 0, 127))
-                    frames[order].panel:SetDrawBackground(true)
+                    frames[order].panel:SetPaintBackground(true)
                 end
             else
                 surface.SetDrawColor(COLOR_WHITE)
                 if turn.player then
-                    frames[order].panel:SetDrawBackground(false)
+                    frames[order].panel:SetPaintBackground(false)
                 end
             end
             if turn.action == "pick" then
