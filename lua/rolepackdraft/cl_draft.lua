@@ -8,6 +8,7 @@ local MathCeil = math.ceil
 local MathMax = math.max
 local MathRandom = math.random
 local PlayerGetBySteamID64 = player.GetBySteamID64
+local StringFormat = string.format
 local StringUpper = string.upper
 local SurfaceDrawRect = surface.DrawRect
 local SurfaceDrawText = surface.DrawText
@@ -47,6 +48,8 @@ local draft_prep_time = GetConVar("ttt_draft_prep_time")
 local draft_turn_time = GetConVar("ttt_draft_turn_time")
 local draft_end_time = GetConVar("ttt_draft_end_time")
 
+local showNext = GetConVar("ttt_draft_show_next"):GetInt()
+
 local smallIconSize = 32
 local smallIconMargin = 10
 local smallIconOutline = 2
@@ -58,6 +61,16 @@ local largeIconGlow = 32
 local groupDividerWidth = 4
 local groupMargin = 10
 local timerWidth = 256
+
+-- Cached colours
+local colours = {
+    bottomIconLight  = Color(0, 0, 0, 223),
+    bottomIconDark   = Color(0, 0, 0, 127),
+    choiceNameLight  = Color(255, 255, 255, 191),
+    choiceNameDark   = Color(255, 255, 255, 32),
+    previewNameLight = Color(255, 255, 255, 180),
+    roleDescription  = Color(220, 220, 220, 230)
+}
 
 surface.CreateFont("DraftName", {
     font = "Tahoma",
@@ -497,6 +510,17 @@ local upNextY     = (3 * smallIconSize) + (4 * smallIconMargin)
 local messageY    = centreDivY + (2 * smallIconMargin)
 local previewY    = scrH * 4 / 5
 
+-- Cache role icons (this was the main FPS killer)
+local roleIconCache = {}
+local function GetRoleIconMaterial(roleShort)
+    local material = roleIconCache[roleShort]
+    if not material then
+        material = Material(util.GetRoleIconPath(roleShort, "score", "png"))
+        roleIconCache[roleShort] = material
+    end
+    return material
+end
+
 local function DrawTopRow()
     for team, group in pairs(topPositions.groups) do
         local x = group.picks.x
@@ -532,7 +556,7 @@ local function DrawTopRow()
                 SurfaceSetMaterial(pickIcon)
             else
                 SurfaceSetDrawColor(COLOR_WHITE)
-                SurfaceSetMaterial(Material(util.GetRoleIconPath(ROLE_STRINGS_SHORT[pickedRoles[team][slot]], "score", "png")))
+                SurfaceSetMaterial(GetRoleIconMaterial(ROLE_STRINGS_SHORT[pickedRoles[team][slot]]))
             end
             SurfaceDrawTexturedRect(x, pickedY, smallIconSize, smallIconSize)
             x = x + smallIconSize + smallIconMargin
@@ -570,7 +594,7 @@ local function DrawTopRow()
                 SurfaceSetMaterial(banIcon)
             else
                 SurfaceSetDrawColor(255, 255, 255, 32)
-                SurfaceSetMaterial(Material(util.GetRoleIconPath(ROLE_STRINGS_SHORT[bannedRoles[team][slot]], "score", "png")))
+                SurfaceSetMaterial(GetRoleIconMaterial(ROLE_STRINGS_SHORT[bannedRoles[team][slot]]))
             end
 
             SurfaceDrawTexturedRect(x, bannedY, smallIconSize, smallIconSize)
@@ -597,7 +621,7 @@ local function DrawTimerSection()
         progress = time / draft_turn_time:GetInt()
     end
 
-    DrawSimpleText(string.format("%05.2f", time), "DraftTimer", scrW / 2, timerY, COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+    DrawSimpleText(StringFormat("%05.2f", time), "DraftTimer", scrW / 2, timerY, COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
     SurfaceDrawRect((scrW - (timerWidth * progress)) / 2, timerY + smallIconSize + (0.5 * smallIconMargin), timerWidth * progress, groupDividerWidth)
 end
 
@@ -657,13 +681,13 @@ local function DrawBottomRow()
         if order < draftPhase then
             SurfaceSetDrawColor(255, 255, 255, 32)
             if turn.player then
-                frames[order].panel:SetBackgroundColor(Color(0, 0, 0, 223))
+                frames[order].panel:SetBackgroundColor(colours.bottomIconLight)
                 frames[order].panel:SetPaintBackground(true)
             end
         elseif order > draftPhase then
             SurfaceSetDrawColor(255, 255, 255, 127)
             if turn.player then
-                frames[order].panel:SetBackgroundColor(Color(0, 0, 0, 127))
+                frames[order].panel:SetBackgroundColor(colours.bottomIconDark)
                 frames[order].panel:SetPaintBackground(true)
             end
         else
@@ -748,7 +772,7 @@ local function DrawMiddleChoices()
 
             if TableHasValue(pickedRoles[turn.team], role) or TableHasValue(bannedRoles[turn.team], role) then
                 SurfaceSetDrawColor(255, 255, 255, 32)
-                DrawSimpleText(ROLE_STRINGS[role], "DraftName", x + (0.5 * largeIconSize), centrePosY + largeIconSize + (0.25 * largeIconMargin), Color(255, 255, 255, 32), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+                DrawSimpleText(ROLE_STRINGS[role], "DraftName", x + (0.5 * largeIconSize), centrePosY + largeIconSize + (0.25 * largeIconMargin), colours.choiceNameDark, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
             elseif selected or hover then
                 if turn.action == "ban" then
                     SurfaceSetDrawColor(255, 255, 255, 32)
@@ -758,7 +782,7 @@ local function DrawMiddleChoices()
                 DrawSimpleText(ROLE_STRINGS[role], "DraftName", x + (0.5 * largeIconSize), centrePosY + largeIconSize + (0.25 * largeIconMargin), COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
             else
                 SurfaceSetDrawColor(255, 255, 255, 191)
-                DrawSimpleText(ROLE_STRINGS[role], "DraftName", x + (0.5 * largeIconSize), centrePosY + largeIconSize + (0.25 * largeIconMargin), Color(255, 255, 255, 191), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+                DrawSimpleText(ROLE_STRINGS[role], "DraftName", x + (0.5 * largeIconSize), centrePosY + largeIconSize + (0.25 * largeIconMargin), colours.choiceNameLight, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
             end
 
             SurfaceSetMaterial(ROLE_SPRITE_ICON_MATERIALS[ROLE_STRINGS_SHORT[role]])
@@ -785,7 +809,6 @@ local function DrawMiddleChoices()
 end
 
 local function DrawNextPreviews()
-    local showNext = GetConVar("ttt_draft_show_next"):GetInt()
     if showNext > 0 and draftPhase < #bottomPositions.order then
         local targetTurn     = nil
         local turnsUntilPick = 0
@@ -831,7 +854,7 @@ local function DrawNextPreviews()
                 local teamColour  = GetRoleTeamColor(targetTurn.team, "highlight")
 
                 local message = {}
-                TableInsert(message, {["text"] = string.format("IN %d TURNS: ", turnsUntilPick), ["color"] = COLOR_WHITE})
+                TableInsert(message, {["text"] = StringFormat("IN %d TURNS: ", turnsUntilPick), ["color"] = COLOR_WHITE})
                 TableInsert(message, {["text"] = "YOU ARE ", ["color"] = COLOR_WHITE})
                 TableInsert(message, {["text"] = actionText, ["color"] = actionColor})
                 TableInsert(message, {["text"] = " " .. teamArticle[targetTurn.team], ["color"] = COLOR_WHITE})
@@ -840,8 +863,6 @@ local function DrawNextPreviews()
                     text.color = ColorAlpha(text.color, 220)
                 end
                 DrawColoredText(message, "DraftSmall", scrW / 2, previewY - previewSize / 2 - 35 - iconOffsetY, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
-
-                nextOffsetY = 35
             end
 
             local hoveredRole = nil
@@ -884,7 +905,7 @@ local function DrawNextPreviews()
                 end
 
                 -- Role name
-                local nameColor = isPickedOrBanned and Color(255, 255, 255, 30) or (isHovered and COLOR_WHITE or Color(255, 255, 255, 180))
+                local nameColor = isPickedOrBanned and colours.choiceNameDark or (isHovered and COLOR_WHITE or colours.previewNameLight)
                 DrawSimpleText(
                     ROLE_STRINGS[role],
                     "DraftName",
@@ -915,7 +936,7 @@ local function DrawNextPreviews()
                     "DraftDescription",
                     scrW / 2,
                     previewY + previewSize + smallIconMargin - iconOffsetY,
-                    Color(220, 220, 220, 230),
+                    colours.roleDescription,
                     TEXT_ALIGN_CENTER,
                     TEXT_ALIGN_TOP
                 )
