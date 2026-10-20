@@ -35,6 +35,13 @@ surface.CreateFont("DraftName", {
     weight = 1000
 })
 
+surface.CreateFont("DraftDescription", {
+    font = "Tahoma",
+    size = 24,
+    weight = 400,
+    italic = true
+})
+
 surface.CreateFont("DraftTimer", {
     font = "Tahoma",
     size = 32,
@@ -248,6 +255,7 @@ local randomSelection = false
 local previousSelection
 local selectedRole
 local frames = {}
+local mouseAutoEnabled = false
 
 local function BeginRolePackDraft(draftData)
     topPositions = CalculateTopIconPositions()
@@ -256,7 +264,6 @@ local function BeginRolePackDraft(draftData)
     availableRoles = draftData.roles
     draftPhase = 0
     nextPhaseTime = CurTime() + draft_prep_time:GetInt()
-
 end
 
 local buff = ""
@@ -323,6 +330,11 @@ net.Receive("TTT_EndRolePackDraft", function()
     previousSelection = nil
     selectedRole = nil
 
+    if vgui.CursorVisible() then
+        gui.EnableScreenClicker(false)
+        mouseAutoEnabled = false
+    end
+
     for _, frame in pairs(frames) do
         frame:Close()
     end
@@ -360,6 +372,7 @@ net.Receive("TTT_NextRolePackDraft", function()
     if draftPhase > #bottomPositions.order or currentPlayer ~= LocalPlayer() then
         if vgui.CursorVisible() then
             gui.EnableScreenClicker(false)
+            mouseAutoEnabled = false
         end
     end
 end)
@@ -441,15 +454,31 @@ local teamNames = {
 local mouseDown = false
 local lastRandomSelect = 0
 local lastRandomIndex = 0
+
+local pickedY     = smallIconMargin
+local bannedY     = smallIconSize + (2 * smallIconMargin)
+local topDivY     = (1.5 * smallIconMargin) + (0.5 * smallIconSize)
+local timerY      = (2 * smallIconSize) + (3 * smallIconMargin)
+local bottomPosY  = ScrH() - smallIconSize - smallIconMargin
+local centrePosY  = (ScrH() - largeIconSize) / 2
+local centreDivY  = (ScrH() + largeIconSize) / 2 + largeIconMargin + smallIconMargin
+local upNextY     = (3 * smallIconSize) + (4 * smallIconMargin)
+local messageY    = centreDivY + (2 * smallIconMargin)
+local previewY    = ScrH() * 4 / 5
+
 hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
     if draftPhase >= 0 then
         draw.NoTexture()
         surface.SetDrawColor(0, 0, 0, 220)
         surface.DrawRect(0, 0, ScrW(), ScrH())
 
+        -------------------------------------------------------------------------------------------------------
+        -- Top row icons (picks/bans)
+        -------------------------------------------------------------------------------------------------------
+
         for team, group in pairs(topPositions.groups) do
             local x = group.picks.x
-            local y = smallIconMargin
+            -- local y = smallIconMargin
             for slot = 1, group.picks.count do
                 local bright = false
                 if draftPhase >= 1 and draftPhase <= #bottomPositions.order then
@@ -458,16 +487,16 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
                             bright = true
                             surface.SetDrawColor(GetRoleTeamColor(team, "highlight"))
                             surface.SetMaterial(smallGlow)
-                            surface.DrawTexturedRect(x - smallIconGlow, y - smallIconGlow, smallIconSize + (2 * smallIconGlow), smallIconSize + (2 * smallIconGlow))
+                            surface.DrawTexturedRect(x - smallIconGlow, pickedY - smallIconGlow, smallIconSize + (2 * smallIconGlow), smallIconSize + (2 * smallIconGlow))
                         end
                     end
                 end
                 draw.NoTexture()
                 surface.SetDrawColor(COLOR_BLACK)
-                surface.DrawRect(x, y, smallIconSize, smallIconSize)
+                surface.DrawRect(x, pickedY, smallIconSize, smallIconSize)
                 surface.SetDrawColor(GetRoleTeamColor(team, "highlight"))
                 surface.SetMaterial(smallOutline)
-                surface.DrawTexturedRect(x - smallIconOutline, y - smallIconOutline, smallIconSize + (2 * smallIconOutline), smallIconSize + (2 * smallIconOutline))
+                surface.DrawTexturedRect(x - smallIconOutline, pickedY - smallIconOutline, smallIconSize + (2 * smallIconOutline), smallIconSize + (2 * smallIconOutline))
                 if slot > #pickedRoles[team] then
                     if bright then
                         surface.SetDrawColor(COLOR_WHITE)
@@ -479,11 +508,11 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
                     surface.SetDrawColor(COLOR_WHITE)
                     surface.SetMaterial(Material(util.GetRoleIconPath(ROLE_STRINGS_SHORT[pickedRoles[team][slot]], "score", "png")))
                 end
-                surface.DrawTexturedRect(x, y, smallIconSize, smallIconSize)
+                surface.DrawTexturedRect(x, pickedY, smallIconSize, smallIconSize)
                 x = x + smallIconSize + smallIconMargin
             end
             x = group.bans.x
-            y = smallIconSize + (2 * smallIconMargin)
+            -- y = smallIconSize + (2 * smallIconMargin)
             for slot = 1, group.bans.count do
                 local bright = false
                 if draftPhase >= 1 and draftPhase <= #bottomPositions.order then
@@ -492,16 +521,16 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
                             bright = true
                             surface.SetDrawColor(GetRoleTeamColor(team, "highlight"))
                             surface.SetMaterial(smallGlow)
-                            surface.DrawTexturedRect(x - smallIconGlow, y - smallIconGlow, smallIconSize + (2 * smallIconGlow), smallIconSize + (2 * smallIconGlow))
+                            surface.DrawTexturedRect(x - smallIconGlow, bannedY - smallIconGlow, smallIconSize + (2 * smallIconGlow), smallIconSize + (2 * smallIconGlow))
                         end
                     end
                 end
                 draw.NoTexture()
                 surface.SetDrawColor(COLOR_BLACK)
-                surface.DrawRect(x, y, smallIconSize, smallIconSize)
+                surface.DrawRect(x, bannedY, smallIconSize, smallIconSize)
                 surface.SetDrawColor(GetRoleTeamColor(team, "highlight"))
                 surface.SetMaterial(smallOutline)
-                surface.DrawTexturedRect(x - smallIconOutline, y - smallIconOutline, smallIconSize + (2 * smallIconOutline), smallIconSize + (2 * smallIconOutline))
+                surface.DrawTexturedRect(x - smallIconOutline, bannedY - smallIconOutline, smallIconSize + (2 * smallIconOutline), smallIconSize + (2 * smallIconOutline))
                 if slot > #bannedRoles[team] then
                     if bright then
                         surface.SetDrawColor(COLOR_WHITE)
@@ -513,19 +542,23 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
                     surface.SetDrawColor(255, 255, 255, 32)
                     surface.SetMaterial(Material(util.GetRoleIconPath(ROLE_STRINGS_SHORT[bannedRoles[team][slot]], "score", "png")))
                 end
-                surface.DrawTexturedRect(x, y, smallIconSize, smallIconSize)
+                surface.DrawTexturedRect(x, bannedY, smallIconSize, smallIconSize)
                 x = x + smallIconSize + smallIconMargin
             end
         end
 
         draw.NoTexture()
-        local y = (1.5 * smallIconMargin) + (0.5 * smallIconSize)
+        -- local y = (1.5 * smallIconMargin) + (0.5 * smallIconSize)
         for _, divider in pairs(topPositions.dividers) do
             surface.SetDrawColor(COLOR_WHITE)
-            surface.DrawRect(divider, y, groupDividerWidth, smallIconSize)
+            surface.DrawRect(divider, topDivY, groupDividerWidth, smallIconSize)
         end
 
-        y = (2 * smallIconSize) + (3 * smallIconMargin)
+        -------------------------------------------------------------------------------------------------------
+        -- Timer
+        -------------------------------------------------------------------------------------------------------
+
+        -- y = (2 * smallIconSize) + (3 * smallIconMargin)
         local time = math.max(0, nextPhaseTime - CurTime())
         local progress
         if draftPhase == 0 then
@@ -535,19 +568,23 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
         else
             progress = time / draft_turn_time:GetInt()
         end
-        draw.SimpleText(string.format("%05.2f", time), "DraftTimer", ScrW() / 2, y, COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
-        surface.DrawRect((ScrW() - (timerWidth * progress)) / 2, y + smallIconSize + (0.5 * smallIconMargin), timerWidth * progress, groupDividerWidth)
+        draw.SimpleText(string.format("%05.2f", time), "DraftTimer", ScrW() / 2, timerY, COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+        surface.DrawRect((ScrW() - (timerWidth * progress)) / 2, timerY + smallIconSize + (0.5 * smallIconMargin), timerWidth * progress, groupDividerWidth)
+
+        -------------------------------------------------------------------------------------------------------
+        -- Bottom row icons (players/actions)
+        -------------------------------------------------------------------------------------------------------
 
         local x = bottomPositions.x
-        y = ScrH() - smallIconSize - smallIconMargin
+        -- y = ScrH() - smallIconSize - smallIconMargin
         draw.NoTexture()
         surface.SetDrawColor(COLOR_WHITE)
-        surface.DrawRect(x + (0.5 * smallIconSize), y + (0.5 * (smallIconSize - groupDividerWidth)), bottomPositions.width - smallIconSize, groupDividerWidth)
+        surface.DrawRect(x + (0.5 * smallIconSize), bottomPosY + (0.5 * (smallIconSize - groupDividerWidth)), bottomPositions.width - smallIconSize, groupDividerWidth)
 
         if draftPhase >= 1 and draftPhase <= #bottomPositions.order then
             surface.SetDrawColor(GetRoleTeamColor(bottomPositions.order[draftPhase].team, "highlight"))
             surface.SetMaterial(smallGlow)
-            surface.DrawTexturedRect(x - smallIconGlow + ((draftPhase - 1) * (smallIconSize + (2 * smallIconMargin))), y - smallIconGlow, smallIconSize + (2 * smallIconGlow), smallIconSize + (2 * smallIconGlow))
+            surface.DrawTexturedRect(x - smallIconGlow + ((draftPhase - 1) * (smallIconSize + (2 * smallIconMargin))), bottomPosY - smallIconGlow, smallIconSize + (2 * smallIconGlow), smallIconSize + (2 * smallIconGlow))
         end
 
         local createFrames = #frames == 0
@@ -556,7 +593,7 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
             if turn.player then
                 if createFrames then
                     local frame = vgui.Create("DFrame")
-                    frame:SetPos(x, y)
+                    frame:SetPos(x, bottomPosY)
                     frame:SetSize(smallIconSize, smallIconSize)
                     frame:ShowCloseButton(false)
                     frame.Paint = function() end
@@ -572,7 +609,7 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
             else
                 draw.NoTexture()
                 surface.SetDrawColor(COLOR_BLACK)
-                surface.DrawRect(x, y, smallIconSize, smallIconSize)
+                surface.DrawRect(x, bottomPosY, smallIconSize, smallIconSize)
                 if order < draftPhase then
                     surface.SetDrawColor(255, 255, 255, 32)
                 elseif order > draftPhase then
@@ -581,12 +618,12 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
                     surface.SetDrawColor(COLOR_WHITE)
                 end
                 surface.SetMaterial(randomIcon)
-                surface.DrawTexturedRect(x, y, smallIconSize, smallIconSize)
+                surface.DrawTexturedRect(x, bottomPosY, smallIconSize, smallIconSize)
             end
 
             surface.SetDrawColor(GetRoleTeamColor(turn.team, "highlight"))
             surface.SetMaterial(smallOutline)
-            surface.DrawTexturedRect(x - smallIconOutline, y - smallIconOutline, smallIconSize + (2 * smallIconOutline), smallIconSize + (2 * smallIconOutline))
+            surface.DrawTexturedRect(x - smallIconOutline, bottomPosY - smallIconOutline, smallIconSize + (2 * smallIconOutline), smallIconSize + (2 * smallIconOutline))
             if order < draftPhase then
                 surface.SetDrawColor(255, 255, 255, 32)
                 if turn.player then
@@ -610,19 +647,24 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
             else
                 surface.SetMaterial(banIcon)
             end
-            surface.DrawTexturedRect(x, y - smallIconSize, smallIconSize, smallIconSize)
+            surface.DrawTexturedRect(x, bottomPosY - smallIconSize, smallIconSize, smallIconSize)
             x = x + smallIconSize + (2 * smallIconMargin)
         end
+
+        -------------------------------------------------------------------------------------------------------
+        -- Middle row (choices)
+        -------------------------------------------------------------------------------------------------------
 
         if draftPhase >= 1 and draftPhase <= #bottomPositions.order then
             local turn = bottomPositions.order[draftPhase]
             x = centrePositions[turn.team].x
-            y = (ScrH() - largeIconSize) / 2
+            -- y = (ScrH() - largeIconSize) / 2
 
             local cursorX, cursorY = -1, -1
             if player.GetBySteamID64(turn.player) == LocalPlayer() then
                 if not vgui.CursorVisible() then
                     gui.EnableScreenClicker(true)
+                    mouseAutoEnabled = true
                 end
 
                 cursorX, cursorY = input.GetCursorPos()
@@ -643,7 +685,7 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
             for _, role in ipairs(availableRoles[turn.team]) do
                 local hover = false
                 local selected = selectedRole == role
-                if cursorX >= x and cursorX <= x + largeIconSize and cursorY >= y and cursorY <= y + largeIconSize then
+                if cursorX >= x and cursorX <= x + largeIconSize and cursorY >= centrePosY and cursorY <= centrePosY + largeIconSize then
                     if not table.HasValue(pickedRoles[turn.team], role) and not table.HasValue(bannedRoles[turn.team], role) then
                         hover = true
                         if input.IsMouseDown(MOUSE_LEFT) then
@@ -663,49 +705,191 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
                 if selected then
                     surface.SetDrawColor(GetRoleTeamColor(turn.team, "highlight"))
                     surface.SetMaterial(largeGlow)
-                    surface.DrawTexturedRect(x - largeIconGlow, y - largeIconGlow, largeIconSize + (2 * largeIconGlow), largeIconSize + (2 * largeIconGlow))
+                    surface.DrawTexturedRect(x - largeIconGlow, centrePosY - largeIconGlow, largeIconSize + (2 * largeIconGlow), largeIconSize + (2 * largeIconGlow))
                 elseif hover then
                     surface.SetDrawColor(ColorAlpha(GetRoleTeamColor(turn.team, "highlight"), 128))
                     surface.SetMaterial(largeGlow)
-                    surface.DrawTexturedRect(x - largeIconGlow, y - largeIconGlow, largeIconSize + (2 * largeIconGlow), largeIconSize + (2 * largeIconGlow))
+                    surface.DrawTexturedRect(x - largeIconGlow, centrePosY - largeIconGlow, largeIconSize + (2 * largeIconGlow), largeIconSize + (2 * largeIconGlow))
                 end
 
                 draw.NoTexture()
                 surface.SetDrawColor(COLOR_BLACK)
-                surface.DrawRect(x, y, largeIconSize, largeIconSize)
+                surface.DrawRect(x, centrePosY, largeIconSize, largeIconSize)
                 if table.HasValue(pickedRoles[turn.team], role) or table.HasValue(bannedRoles[turn.team], role) then
                     surface.SetDrawColor(255, 255, 255, 32)
-                    draw.SimpleText(ROLE_STRINGS[role], "DraftName", x + (0.5 * largeIconSize), y + largeIconSize + (0.25 * largeIconMargin), Color(255, 255, 255, 32), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+                    draw.SimpleText(ROLE_STRINGS[role], "DraftName", x + (0.5 * largeIconSize), centrePosY + largeIconSize + (0.25 * largeIconMargin), Color(255, 255, 255, 32), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
                 elseif selected or hover then
                     if turn.action == "ban" then
                         surface.SetDrawColor(255, 255, 255, 32)
                     else
                         surface.SetDrawColor(COLOR_WHITE)
                     end
-                    draw.SimpleText(ROLE_STRINGS[role], "DraftName", x + (0.5 * largeIconSize), y + largeIconSize + (0.25 * largeIconMargin), COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+                    draw.SimpleText(ROLE_STRINGS[role], "DraftName", x + (0.5 * largeIconSize), centrePosY + largeIconSize + (0.25 * largeIconMargin), COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
                 else
                     surface.SetDrawColor(255, 255, 255, 191)
-                    draw.SimpleText(ROLE_STRINGS[role], "DraftName", x + (0.5 * largeIconSize), y + largeIconSize + (0.25 * largeIconMargin), Color(255, 255, 255, 191), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+                    draw.SimpleText(ROLE_STRINGS[role], "DraftName", x + (0.5 * largeIconSize), centrePosY + largeIconSize + (0.25 * largeIconMargin), Color(255, 255, 255, 191), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
                 end
                 surface.SetMaterial(ROLE_SPRITE_ICON_MATERIALS[ROLE_STRINGS_SHORT[role]])
-                surface.DrawTexturedRect(x, y, largeIconSize, largeIconSize)
+                surface.DrawTexturedRect(x, centrePosY, largeIconSize, largeIconSize)
 
                 if turn.action == "ban" then
                     if selected then
                         surface.SetDrawColor(COLOR_WHITE)
                         surface.SetMaterial(largeBan)
-                        surface.DrawTexturedRect(x, y, largeIconSize, largeIconSize)
+                        surface.DrawTexturedRect(x, centrePosY, largeIconSize, largeIconSize)
                     elseif hover then
                         surface.SetDrawColor(255, 255, 255, 191)
                         surface.SetMaterial(largeBan)
-                        surface.DrawTexturedRect(x, y, largeIconSize, largeIconSize)
+                        surface.DrawTexturedRect(x, centrePosY, largeIconSize, largeIconSize)
                     end
                 end
 
                 surface.SetDrawColor(GetRoleTeamColor(turn.team, "highlight"))
                 surface.SetMaterial(largeOutline)
-                surface.DrawTexturedRect(x - largeIconOutline, y - largeIconOutline, largeIconSize + (2 * largeIconOutline), largeIconSize + (2 * largeIconOutline))
+                surface.DrawTexturedRect(x - largeIconOutline, centrePosY - largeIconOutline, largeIconSize + (2 * largeIconOutline), largeIconSize + (2 * largeIconOutline))
                 x = x + largeIconSize + largeIconMargin
+            end
+        end
+
+        -------------------------------------------------------------------------------------------------------
+        -- Next turn choice previews
+        -------------------------------------------------------------------------------------------------------
+
+        local showNext = GetConVar("ttt_draft_show_next"):GetInt()
+        if showNext > 0 and draftPhase < #bottomPositions.order then
+            local targetTurn     = nil
+            local turnsUntilPick = 0
+
+            if showNext == 1 then
+                -- Show previews if player is up next
+                local nextTurn = bottomPositions.order[draftPhase + 1]
+                local nextPly = player.GetBySteamID64(nextTurn.player)
+                if nextPly == LocalPlayer() then
+                    targetTurn = nextTurn
+                    turnsUntilPick = 1
+                end
+            elseif showNext == 2 then
+                -- Find player's next choice
+                for i = draftPhase + 1, #bottomPositions.order do
+                    local turn = bottomPositions.order[i]
+                    if turn.player and player.GetBySteamID64(turn.player) == LocalPlayer() then
+                        targetTurn = turn
+                        turnsUntilPick = i - draftPhase
+                        break
+                    end
+                end
+            end
+
+            if targetTurn then
+                local nextX = centrePositions[targetTurn.team].x
+
+                local previewSize   = 48
+                local previewMargin = 40
+
+                local previewWidth = #availableRoles[targetTurn.team] * (previewSize + previewMargin) - previewMargin
+                nextX = (ScrW() - previewWidth) / 2
+
+                -- Get cursor location for hover detection
+                local cursorX, cursorY = input.GetCursorPos()
+
+                local iconOffsetY = turnsUntilPick <= 1 and 70 or 0
+
+                -- Draw "IN x TURNS" text
+                if showNext == 2 and turnsUntilPick > 1 then
+                    local actionText  = targetTurn.action == "pick" and "PICKING" or "BANNING"
+                    local actionColor = targetTurn.action == "pick" and GetRoleTeamColor(ROLE_TEAM_DETECTIVE, "highlight") or GetRoleTeamColor(ROLE_TEAM_TRAITOR, "highlight")
+                    local teamColour  = GetRoleTeamColor(targetTurn.team, "highlight")
+
+                    local message = {}
+                    table.insert(message, {["text"] = string.format("IN %d TURNS: ", turnsUntilPick), ["color"] = COLOR_WHITE})
+                    table.insert(message, {["text"] = "YOU ARE ", ["color"] = COLOR_WHITE})
+                    table.insert(message, {["text"] = actionText, ["color"] = actionColor})
+                    table.insert(message, {["text"] = " " .. teamArticle[targetTurn.team], ["color"] = COLOR_WHITE})
+                    table.insert(message, {["text"] = " " .. teamNames[targetTurn.team], ["color"] = teamColour})
+                    for _, text in ipairs(message) do
+                        text.color = ColorAlpha(text.color, 220)
+                    end
+                    DrawColoredText(message, "DraftSmall", ScrW() / 2, previewY - previewSize / 2 - 35 - iconOffsetY, TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
+
+                    nextOffsetY = 35
+                end
+
+                local hoveredRole = nil
+
+                -- Draw preview icons
+                for _, role in ipairs(availableRoles[targetTurn.team]) do
+                    local iconY = previewY - previewSize / 2 - iconOffsetY
+                    local isHovered = (cursorX >= nextX and cursorX <= nextX + previewSize and cursorY >= iconY and cursorY <= iconY + previewSize)
+
+                    if isHovered then
+                        hoveredRole = role
+                    end
+
+                    -- Draw glow if hovered
+                    if isHovered then
+                        surface.SetDrawColor(ColorAlpha(GetRoleTeamColor(targetTurn.team, "highlight"), 180))
+                        surface.SetMaterial(smallGlow)
+                        surface.DrawTexturedRect(nextX - smallIconGlow, iconY - smallIconGlow, previewSize + (2 * smallIconGlow), previewSize + (2 * smallIconGlow))
+                    end
+
+                    draw.NoTexture()
+                    surface.SetDrawColor(0, 0, 0, 150)
+                    surface.DrawRect(nextX, iconY, previewSize, previewSize)
+
+                    local isPickedOrBanned = table.HasValue(pickedRoles[targetTurn.team], role) or table.HasValue(bannedRoles[targetTurn.team], role)
+
+                    if isPickedOrBanned then
+                        surface.SetDrawColor(255, 255, 255, 30)
+                    elseif isHovered then
+                        surface.SetDrawColor(255, 255, 255, 255)
+                    else
+                        surface.SetDrawColor(255, 255, 255, 160)
+                    end
+
+                    -- Role icon
+                    local iconMat = ROLE_SPRITE_ICON_MATERIALS[ROLE_STRINGS_SHORT[role]]
+                    if iconMat then
+                        surface.SetMaterial(iconMat)
+                        surface.DrawTexturedRect(nextX, iconY, previewSize, previewSize)
+                    end
+
+                    -- Role name
+                    local nameColor = isPickedOrBanned and Color(255, 255, 255, 30) or (isHovered and COLOR_WHITE or Color(255, 255, 255, 180))
+                    draw.SimpleText(
+                        ROLE_STRINGS[role],
+                        "DraftName",
+                        nextX + (0.5 * previewSize),
+                        previewY + previewSize / 2 + 4 - iconOffsetY,
+                        nameColor,
+                        TEXT_ALIGN_CENTER,
+                        TEXT_ALIGN_TOP
+                    )
+
+                    -- Outline
+                    surface.SetDrawColor(ColorAlpha(GetRoleTeamColor(targetTurn.team, "highlight"), isHovered and 255 or 150))
+                    surface.SetMaterial(smallOutline)
+                    surface.DrawTexturedRect(nextX - smallIconOutline, iconY - smallIconOutline, previewSize + (2 * smallIconOutline), previewSize + (2 * smallIconOutline))
+
+                    nextX = nextX + previewSize + previewMargin
+                end
+
+                -- Draw role description underneath preview names if hovered
+                if hoveredRole then
+                    local descText = "This role doesn't have a description :("
+                    if LANG and LANG.GetRawTranslation then
+                        descText = LANG.GetRawTranslation("cheatsheet_desc_" .. ROLE_STRINGS_RAW[hoveredRole]) or descText
+                    end
+
+                    draw.SimpleText(
+                        descText,
+                        "DraftDescription",
+                        ScrW() / 2,
+                        previewY + previewSize + smallIconMargin - iconOffsetY,
+                        Color(220, 220, 220, 230),
+                        TEXT_ALIGN_CENTER,
+                        TEXT_ALIGN_TOP
+                    )
+                end
             end
         end
 
@@ -781,11 +965,11 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
             table.insert(message, {["text"] = " " .. teamNames[turn.team], ["color"] = GetRoleTeamColor(turn.team, "highlight")})
             DrawColoredText(message, "DraftLarge", x, (ScrH() - largeIconSize) / 2 - (0.5 * largeIconMargin), TEXT_ALIGN_CENTER, TEXT_ALIGN_BOTTOM)
 
-            y = (ScrH() + largeIconSize) / 2 + largeIconMargin + smallIconMargin
+            -- y = (ScrH() + largeIconSize) / 2 + largeIconMargin + smallIconMargin
             draw.NoTexture()
             surface.SetDrawColor(COLOR_WHITE)
-            surface.DrawRect(centrePositions[turn.team].x - smallIconSize, y, ScrW() + (2 * smallIconSize) - (2 * centrePositions[turn.team].x), groupDividerWidth / 2)
-            y = y + (2 * smallIconMargin)
+            surface.DrawRect(centrePositions[turn.team].x - smallIconSize, centreDivY, ScrW() + (2 * smallIconSize) - (2 * centrePositions[turn.team].x), groupDividerWidth / 2)
+            messageY = centreDivY + (2 * smallIconMargin)
 
             if draftPhase > 1 then
                 local lastTurn = bottomPositions.order[draftPhase - 1]
@@ -820,9 +1004,9 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
                 for _, text in ipairs(message) do
                     text.color = ColorAlpha(text.color, 220)
                 end
-                DrawColoredText(message, "DraftSmall", x, y, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+                DrawColoredText(message, "DraftSmall", x, messageY, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
 
-                y = y + (0.65 * largeIconSize)
+                messageY = messageY + (0.65 * largeIconSize)
             end
 
             if draftPhase < #bottomPositions.order then
@@ -853,8 +1037,11 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
                 for _, text in ipairs(message) do
                     text.color = ColorAlpha(text.color, 220)
                 end
-                DrawColoredText(message, "DraftSmall", x, y, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+                DrawColoredText(message, "DraftSmall", x, messageY, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
             end
+
+            -- Draw dividing line above preview row
+            surface.DrawRect(centrePositions[turn.team].x, messageY + 38 + (2 * smallIconMargin), ScrW() - (2 * centrePositions[turn.team].x), groupDividerWidth / 2)
         end
 
         if draftPhase < #bottomPositions.order then
@@ -862,9 +1049,36 @@ hook.Add("HUDDrawScoreBoard", "TTTDraft_HUDDrawScoreBoard", function()
             local nextPly = player.GetBySteamID64(nextTurn.player)
             if nextPly == LocalPlayer() then
                 x = ScrW() / 2
-                y = (3 * smallIconSize) + (4 * smallIconMargin)
-                draw.SimpleText("YOU ARE UP NEXT", "DraftSmall", x, y, COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
+                -- y = (3 * smallIconSize) + (4 * smallIconMargin)
+                draw.SimpleText("YOU ARE UP NEXT", "DraftSmall", x, upNextY, COLOR_WHITE, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP)
             end
         end
+    end
+end)
+
+-- Block scoreboard if player holds tab to hover preview icons and see role descriptions
+hook.Add("ScoreboardShow", "RoleDraft_BlockScoreboardShow", function()
+    if draftPhase >= 0 then
+        return true
+    end
+end)
+
+-- Enable cursor if player holds tab (need to do this manually as we're blocking the scoreboard)
+hook.Add("PlayerButtonDown", "RoleDraft_EnableMouseClicker", function(_, button)
+    if button ~= KEY_TAB then return end
+    if draftPhase < 0 then return end
+
+    if not gui.EnableScreenClicker() then
+        gui.EnableScreenClicker(true)
+    end
+end)
+
+-- Disable the cursor on tab release UNLESS it was auto-enabled because it's their turn to pick (i.e. don't mess with current functionality)
+hook.Add("PlayerButtonUp", "RoleDraft_DisableMouseClicker", function(_, button)
+    if button ~= KEY_TAB then return end
+    if draftPhase < 0 or mouseAutoEnabled then return end
+
+    if gui.EnableScreenClicker() then
+        gui.EnableScreenClicker(false)
     end
 end)
